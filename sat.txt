@@ -1,0 +1,21 @@
+dpll with watched counting variables:
+
+function DPLL_count(F)
+	if F is a consistent set of literals
+		//then return true;
+		for each watched counting variable that is either not set or true,
+			count the possibilities and add to results
+	if F contains an empty clause
+		return and don't increment anything
+		//then return false;
+	for every unit clause {l} in F
+		F <- unit-propagate(l, F);
+	for every literal l that occurs pure in F
+		F <- pure-literal-assign(l, F); //MAKE IT FREE but ignore it now
+	//l ? choose-literal(F);
+		//return DPLL(F ? {l}) or DPLL(F ? {not(l)});
+	DPLL_count(F ? {l});
+	DPLL_count(F ? {not(l)});
+
+
+need to formulate as a SAT problem now
