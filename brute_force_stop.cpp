@@ -7,30 +7,29 @@ using namespace std;
 //board dimensions
 #define WIDTH 10
 #define HEIGHT 10
+/*
+#define WIDTH 10
+#define HEIGHT 10
 //boats
 const vector<int> sizes = {2,3,3,4,5};
+*/
+const vector<int> sizes = {2,3,3,4};
 const int n = sizes.size();
 
 #define grid_t vector<vector<int>>
 
-//if we could do this with incremental computation, checks would be near-constant time (log(W*H))
 void draw_state(int length, int no, grid_t &grid, int mult, int &below_zero, int &above_one)
 {
 	//we give a canonical ordering to the states
 	//this can hopefully be modified for hits
 	//TODO: STRING MATCHING ALGORITHMS! where we just count the matches-ish? or maybe use/extend suffix trees
-	int length1 = (WIDTH - length)*HEIGHT;
-
-	//TODO: this check should be done in get_counts
-	//int length2 = WIDTH*(HEIGHT - length);
-	//if (no >= length1+length2)
-	//	pass_flag = true;
+	int length1 = (WIDTH - length + 1)*HEIGHT;
 
 	bool horizontal_orientation = no < length1;
 	no %= length1;
 	int adjusted_width = WIDTH;
 	if (horizontal_orientation)
-		adjusted_width = WIDTH - length;
+		adjusted_width = WIDTH - length + 1;
 	int x = no % adjusted_width;
 	int y = no / adjusted_width;
 	int dx = 0, dy = 1;
@@ -70,6 +69,22 @@ void add_grid(grid_t &a, const grid_t &b)
 			a[i][j] += b[i][j];
 }
 
+bool print_position(const vector<int> &positions, const vector<int> &max_digits)
+{
+	int n = positions.size();
+	for (int i = 0; i < n; ++i)
+		cout << positions[i] << '/' << max_digits[i] << (i == n-1 ? ' ' : ',');
+	cout << '\n';
+}
+
+bool unfinished(const vector<int> &positions)
+{
+	for (int a : positions)
+		if (a > 0)
+			return true;
+	return false;
+}
+
 //counts is the return value
 //hits has entries=-1 for each hit
 //misses has entries=1 for each miss
@@ -89,7 +104,7 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 	//figure out the number of possible positions for each piece
 	for (int p = 0; p < n; ++p)
 	{
-		max_digits[p] = (WIDTH - sizes[p])*HEIGHT + WIDTH*(HEIGHT - sizes[p]);
+		max_digits[p] = (WIDTH - sizes[p] + 1)*HEIGHT + WIDTH*(HEIGHT - sizes[p] + 1); //count of possible positions for each orientation
 		total *= max_digits[p];
 	}
 	grid_t current_grid = create_grid();
@@ -99,10 +114,60 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 	int below_zero = 0;
 	int above_one = 0;
 	cout << "total=" << total << endl;
-	for (int i = 0; i < total; ++i)
+
+	auto check_valid = [&] ()
 	{
-		//increment the state
-		for (int p = 0; p < n; ++p)
+		return (below_zero == 0 && above_one == 0);
+	};
+
+	//for (int i = 0; i < total; ++i)
+	int iter = 0;
+	do
+	{
+		//keep track of how we're doing
+		if (iter % 1000000 == 0)
+		{
+				cout << "iter=" << iter << ", current_position = "; print_position(positions,max_digits);
+		}
+		++iter;
+		//create the state, and check as we go
+		int p = 0;
+		bool fully_drawn = true;
+		for (; p < n; ++p)
+		{
+			draw_state(sizes[p], positions[p], current_grid, 1, below_zero, above_one);
+			//check if it is a valid state (check collisions, check hits, check misses)
+			if (!check_valid()) //we failed without all the ships on the board
+			{
+				int p0 = p; //amount of things drawn
+				//undraw current state
+				for (; p >= 0; --p) //note that we only undraw the ships we drew
+				{
+					draw_state(sizes[p], positions[p], current_grid, -1, below_zero, above_one);
+				}
+				//skip all cases with the 'smaller order' ships in any position
+				for (p = p0+1; p < n; ++p)
+				{
+					//cout << "skipping boat p=" << p << " configs from position=" << positions[p] << endl;
+					positions[p] = max_digits[p]-1;
+				}
+				fully_drawn = false; //don't re-undraw
+				break; //stop drawing new ships
+			}
+		}
+		//if it is a valid state, add the matrix to counts
+		if (fully_drawn)
+		{
+			//all ships are now fully drawn, so we have a valid state
+			add_grid(counts, current_grid);
+			//undraw current state
+			for (p = 0; p < n; ++p)
+			{
+				draw_state(sizes[p], positions[p], current_grid, -1, below_zero, above_one);
+			}
+		}
+		//increment the ship position states
+		for (p = n-1; p >= 0; --p)
 		{
 			++positions[p];
 			if (positions[p] >= max_digits[p])
@@ -110,23 +175,10 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 			else
 				break;
 		}
-		//check if it is a valid state (check collisions, check hits, check misses)
-		//create the state, and check as we go
-		for (int p = 0; p < n; ++p)
-		{
-			draw_state(sizes[p], positions[p], current_grid, 1, below_zero, above_one);
-		}
-		//if it is a valid state, add the matrix to counts
-		if (below_zero == 0 && above_one == 0)
-		{
-			add_grid(counts, current_grid);
-		}
-		//undraw current state
-		for (int p = 0; p < n; ++p)
-		{
-			draw_state(sizes[p], positions[p], current_grid, -1, below_zero, above_one);
-		}
 	}
+	while (unfinished(positions));
+	//how many iterations did that take overall?
+	cout << "total iter=" << iter << endl;
 }
 
 void print_grid(const grid_t &a)
