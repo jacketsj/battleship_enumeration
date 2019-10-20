@@ -185,7 +185,7 @@ void sat_formulation(const grid_t &hits, const grid_t &misses)
 	}
 
 	//now output
-	cout << "p cnf " << var_size << clauses.size() << '\n';
+	cout << "p cnf " << var_size << ' ' << clauses.size() << '\n';
 	for (vector<int> &literals : clauses)
 	{
 		for (int l : literals)
