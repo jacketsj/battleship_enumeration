@@ -5,15 +5,15 @@ using namespace std;
 
 //CONSTANTS
 //board dimensions
-#define WIDTH 10
-#define HEIGHT 10
+#define WIDTH 8
+#define HEIGHT 8
 /*
 #define WIDTH 10
 #define HEIGHT 10
 //boats
 const vector<int> sizes = {2,3,3,4,5};
 */
-const vector<int> sizes = {2,3,3,4};
+const vector<int> sizes = {2,3,3};
 const int n = sizes.size();
 
 #define grid_t vector<vector<int>>
@@ -58,8 +58,7 @@ grid_t create_grid()
 {
 	grid_t ret(WIDTH);
 	for (int i = 0; i < WIDTH; ++i)
-		ret[i].resize(HEIGHT);
-	return ret;
+		ret[i].resize(HEIGHT); return ret;
 }
 
 void add_grid(grid_t &a, const grid_t &b)
@@ -95,7 +94,7 @@ bool unfinished(const vector<int> &positions)
 //counts is the return value
 //hits has entries=-1 for each hit
 //misses has entries=1 for each miss
-void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
+void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses, int &added_count)
 {
 	//if we can get a canonical order: for each permutation of sizes
 
@@ -127,7 +126,7 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 		return (below_zero == 0 && above_one == 0);
 	};
 
-	int added_count = 0;
+	added_count = 0; //the number of valid arrangements
 
 	int iter = 0;
 	int p, p0; //to be used in critical section
@@ -203,11 +202,16 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 void print_grid(const grid_t &a)
 {
 	for (int i = 0; i < WIDTH; ++i)
-	{
 		for (int j = 0; j < HEIGHT; ++j)
-			cout << a[i][j] << ' ';
-		cout << '\n';
-	}
+			cout << a[i][j] << "\t\n"[j==HEIGHT-1];
+}
+
+void print_grid_chance(const grid_t &a, const int &added_count)
+{
+	double count = added_count;
+	for (int i = 0; i < WIDTH; ++i)
+		for (int j = 0; j < HEIGHT; ++j)
+			cout << double(a[i][j])/count << "\t\n"[j==HEIGHT-1];
 }
 
 #undef int
@@ -219,6 +223,10 @@ int main()
 	grid_t hits = create_grid();
 	grid_t misses = create_grid();
 
-	get_counts(counts, hits, misses);
+	int added_count;
+	get_counts(counts, hits, misses, added_count);
 	print_grid(counts);
+	cout << "Total configurations: " << added_count << endl;
+	cout << fixed << setprecision(2); //show 2 decimals for chance
+	print_grid_chance(counts,added_count);
 }
