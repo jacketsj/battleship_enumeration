@@ -69,6 +69,13 @@ void add_grid(grid_t &a, const grid_t &b)
 			a[i][j] += b[i][j];
 }
 
+void multiply_grid(grid_t &a, const int &c)
+{
+	for (int i = 0; i < WIDTH; ++i)
+		for (int j = 0; j < HEIGHT; ++j)
+			a[i][j] *= c;
+}
+
 bool print_position(const vector<int> &positions, const vector<int> &max_digits)
 {
 	int n = positions.size();
@@ -120,8 +127,11 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 		return (below_zero == 0 && above_one == 0);
 	};
 
-	//for (int i = 0; i < total; ++i)
+	int added_count = 0;
+
 	int iter = 0;
+	int p, p0; //to be used in critical section
+	bool fully_drawn; //to be used in critical section
 	do
 	{
 		//keep track of how we're doing
@@ -130,16 +140,20 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 				cout << "iter=" << iter << ", current_position = "; print_position(positions,max_digits);
 		}
 		++iter;
+
+
+		//NO ALLOC CODE SECTION
+
 		//create the state, and check as we go
-		int p = 0;
-		bool fully_drawn = true;
+		p = 0;
+		fully_drawn = true;
 		for (; p < n; ++p)
 		{
 			draw_state(sizes[p], positions[p], current_grid, 1, below_zero, above_one);
 			//check if it is a valid state (check collisions, check hits, check misses)
 			if (!check_valid()) //we failed without all the ships on the board
 			{
-				int p0 = p; //amount of things drawn
+				p0 = p; //amount of things drawn
 				//undraw current state
 				for (; p >= 0; --p) //note that we only undraw the ships we drew
 				{
@@ -160,6 +174,8 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 		{
 			//all ships are now fully drawn, so we have a valid state
 			add_grid(counts, current_grid);
+			//note that this is also includes hit and miss offsets, so we have to subtract those after
+			++added_count; //will subtract -added_count*current_grid at the end
 			//undraw current state
 			for (p = 0; p < n; ++p)
 			{
@@ -177,6 +193,9 @@ void get_counts(grid_t &counts, const grid_t &hits, const grid_t &misses)
 		}
 	}
 	while (unfinished(positions));
+	//subtract added_count*current_grid since we had an extra difference of it
+	multiply_grid(current_grid,-added_count);
+	add_grid(counts, current_grid);
 	//how many iterations did that take overall?
 	cout << "total iter=" << iter << endl;
 }
