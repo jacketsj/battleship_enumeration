@@ -16,7 +16,99 @@ const vector<int> lengths = {2,3,3,4,5};
 const vector<int> lengths = {2,3,3,4,5};
 const int n = lengths.size();
 
-typedef bitset<WIDTH*(HEIGHT-1)+HEIGHT*(WIDTH-1)> pos_set;
+
+typedef unsigned long long ull;
+//typedef uint64_t ull;
+
+namespace fast_bitset
+{
+	template <int T>
+	struct bitset
+	{
+	#define sz sizeof(ull)*8
+	#define N (T+sz-1)/sz //ceiling of T/sz
+		//3*64>180 (the maximum number of states for a ship)
+		//const static int N = 3;
+		ull vals[N];
+		//const static int sz = sizeof(ull)*8;
+		bitset()
+		{
+			for (int i = 0; i < N; ++i)
+				vals[i] = 0;
+		}
+		void operator &=(const bitset &other)
+		{
+			for (int i = 0; i < N; ++i)
+				vals[i] &= other.vals[i];
+		}
+		//void copy(const pos_set &other)
+		//{
+		//	for (int i = 0; i < N; ++i)
+		//		vals[i] = other.vals[i];
+		//}
+		// any bit is set
+		bool any() const
+		{
+			for (int i = 0; i < N; ++i)
+				if (vals[i] != 0)
+					return true;
+			return false;
+		}
+		bool get(int i) const
+		{
+			int k = i/sz;
+			i %= sz;
+			return (vals[k] & (1<<i)) != 0;
+		}
+		void set(int i, bool b)
+		{
+			int k = i/sz;
+			i %= sz;
+			if (b)
+				vals[k] |= (1<<i);
+			else
+				vals[k] &= ~(1<<i);
+		}
+		//void print_() const
+		//{
+		//	for (int i = 0; i < N; ++i)
+		//		cout << bitset<64>(vals[i]) << ", "[i==N-1];
+		//}
+		//void print() const
+		//{
+		//	for (int i = 0; i < N; ++i)
+		//		cout << vals[i] << " \n"[i==N-1];
+		//}
+		// do a destructive bitscan
+		// returns -1 if nothing found
+		int next()
+		{
+			for (int i = 0; i < N; ++i)
+			{
+				if (vals[i] != 0)
+				{
+					// compute the index
+					//int ret = sz*i+(__builtin_ffsll(vals[i])-1);
+					// __builtin_ctzll counts trailing 0s
+					ull t = vals[i] & -vals[i]; //lowestOneBit
+					int j = __builtin_ctzll(vals[i]);
+					int ret = sz*i+j;
+					// destroy it
+					//vals[i] &= ~(1<<j);
+					//the fenwick tree code doesn't work (?)
+					vals[i] ^= t;
+					return ret;
+				}
+			}
+			cout << "this should never happen" << endl;
+			return -1;
+		}
+	#undef sz
+	#undef N
+	};
+}
+
+typedef fast_bitset::bitset<WIDTH*(HEIGHT-1)+HEIGHT*(WIDTH-1)> pos_set;
 
 typedef vector<ll> grid_t;
 
@@ -136,7 +228,7 @@ pos_set all_compatible_pairs(int length_a, int state_a, int length_b, vector<int
 	{
 		int state_b = states_b[i];
 		if (compatible_pair(length_a, state_a, length_b, state_b, test_grid))
-			res[i] = true;
+			res.set(i,true);
 	}
 	return res;
 }
@@ -186,13 +278,15 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	ll count = 0;
 
 	// iterate over all the ship states that are still valid
-	// TODO: remove the wasteful loops (currently, this code will run about 10^11 times)
-	//       use __builtin_ffsll (returns 1 + the index of the first set bit, or 0 if no set bits)
-	//       this is a (forward) bitscan. MSVC also has a function for it (_BitScanForward64)
-	for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
+	pos_set current = currently_valid[ship_index];
+	//current.copy(currently_valid[ship_index]);
+	while (current.any())
 	{
-		if (currently_valid[ship_index][state_index])
-		{
+		int state_index = current.next();
+	//for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
+	//{
+		//if (currently_valid[ship_index].get(state_index))
+		//{
 			// update legal states for remaining ships
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] &= validity_masks[ship_index][state_index][j];
@@ -204,7 +298,7 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 			// set currently_valid values back
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] = edits[j-ship_index-1];
-		}
+		//}
 	}
 	return count;
 }
@@ -243,7 +337,7 @@ void count_occurrences(grid_t &misses)
 	vector<pos_set> currently_valid(n); // for each ship, keep track of which states are still valid
 	for (int i = 0; i < n; ++i)
 		for (int state_i = 0; state_i < num_valid_states[i]; ++state_i)
-			currently_valid[i][state_i] = true;
+			currently_valid[i].set(state_i,true);
 
 	vector<vector<int>> state_frequency(n); // for each ship, keep the frequency of each of its states
 	for (int i = 0; i < n; ++i)
