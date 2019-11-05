@@ -168,7 +168,7 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	// base case: all ships placed successfully
 	if (ship_index == n)
 	{
-		if (++total_successful % 1000000 == 0)
+		if (++total_successful % 100000000 == 0)
 			cout << "Cumulative successful: " << total_successful << endl;
 		return 1;
 	}
