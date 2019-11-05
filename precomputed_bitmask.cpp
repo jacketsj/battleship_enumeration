@@ -5,15 +5,15 @@ typedef long long ll;
 
 // CONSTANTS
 // board dimensions
-#define WIDTH 8
-#define HEIGHT 8
+#define WIDTH 10
+#define HEIGHT 10
 /*
 #define WIDTH 10
 #define HEIGHT 10
 //boats
 const vector<int> lengths = {2,3,3,4,5};
 */
-const vector<int> lengths = {2,3,3};
+const vector<int> lengths = {2,3,3,4,5};
 const int n = lengths.size();
 
 typedef vector<ll> grid_t;
@@ -36,11 +36,11 @@ int vertical_state_class_count(int length)
 // produce number of horizontal states for a single ship on a clean board
 int horizontal_state_count(int length)
 {
-	return horizontal_state_count(length)*HEIGHT;
+	return horizontal_state_class_count(length)*HEIGHT;
 }
 int vertical_state_count(int length)
 {
-	return vertical_state_count(length)*WIDTH;
+	return vertical_state_class_count(length)*WIDTH;
 }
 // produce the number of states for a ship on a clean board
 int state_count(int length)
@@ -147,16 +147,23 @@ vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_sta
 	// create a single test grid to avoid reallocating memory needlessly
 	grid_t test_grid = create_grid();
 	// indexed by ship1, position of ship1, ship2
-	vector<vector<vector<pos_set>>> res(n,vector<vector<pos_set>>(n));
-	for (int i = 0; i < lengths.size(); ++i) // for each ship
-		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each position of ship i
-			for (int j = i+1; j < lengths.size(); ++j) // for each ship that will be seen later than i
+	vector<vector<vector<pos_set>>> res(n);
+	for (int i = 0; i < n; ++i)
+	{
+		res[i].resize(valid_states[i].size());
+		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+			res[i][state_i].resize(n);
+	}
+
+	for (int i = 0; i < n; ++i) // for each ship
+		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+			for (int j = i+1; j < n; ++j) // for each ship that will be seen later than i
 				res[i][state_i][j] = all_compatible_pairs(lengths[i], valid_states[i][state_i], lengths[j], valid_states[j], test_grid);
 	return res;
 }
 
 ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &validity_masks,
-		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful=0)
+		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful)
 {
 	// base case: all ships placed successfully
 	if (ship_index == n)
@@ -167,8 +174,9 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	}
 
 	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
-	if (currently_valid[ship_index].none())
-		return 0;
+	// TODO: This actually gives a segfault??
+	//if (currently_valid[ship_index].none())
+	//	return 0;
 
 	// Save the information about currently_valid that we will need when we return from recursive calls
 	vector<pos_set> edits(n-ship_index-1);
@@ -202,10 +210,28 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	return count;
 }
 
+// print the final grid
+void print_grid(const grid_t &a)
+{
+	for (int y = 0; y < HEIGHT; ++y)
+		for (int x = 0; x < WIDTH; ++x)
+			cout << a[x+y*WIDTH] << "\t\n"[x == WIDTH-1];
+}
+
+// print the final grid of probabilities
+void print_grid_chance(const grid_t &a, const ll &added_count)
+{
+	cout << fixed << setprecision(2); //show 2 decimals for chance
+	double count = added_count;
+	for (int y = 0; y < HEIGHT; ++y)
+		for (int x = 0; x < WIDTH; ++x)
+			cout << double(a[x+y*WIDTH])/count << "\t\n"[x == WIDTH-1];
+}
+
 // list of hits not currently supported, need to derive new algorithm
 // count the number of occurrences of each spot on the grid
 // do this by counting the frequency of each position for each ship
-grid_t count_occurrences(grid_t &misses)
+void count_occurrences(grid_t &misses)
 {
 	vector<vector<int>> valid_states = find_valid_states(misses);
 	// count the number of valid states, to be used when placing ships
@@ -215,13 +241,18 @@ grid_t count_occurrences(grid_t &misses)
 
 	vector<vector<vector<pos_set>>> validity_masks = find_all_pos_sets(valid_states);
 
-	vector<pos_set> currently_valid; // for each ship, keep track of which positions are still valid
+	vector<pos_set> currently_valid(n); // for each ship, keep track of which states are still valid
+	for (int i = 0; i < n; ++i)
+		for (int state_i = 0; state_i < num_valid_states[i]; ++state_i)
+			currently_valid[i][state_i] = true;
 
 	vector<vector<int>> state_frequency(n); // for each ship, keep the frequency of each of its states
 	for (int i = 0; i < n; ++i)
-		state_frequency.resize(valid_states[i].size());
+		state_frequency[i].resize(num_valid_states[i]);
 
-	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states);
+	ll total_successful = 0;
+	// call recursive ship placement routine to iterate through all valid placements
+	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
 
 	grid_t frequencies = create_grid();
 	for (int i = 0; i < n; ++i)
@@ -229,11 +260,17 @@ grid_t count_occurrences(grid_t &misses)
 			draw_state(state_index, lengths[i], state_frequency[i][state_index], frequencies);
 
 	cout << "Total states: " << total_states << endl;
-	for (int y = 0; y < HEIGHT; ++y)
-		for (int x = 0; x < WIDTH; ++x)
-			cout << frequencies[x+y*WIDTH] << "\t\n"[x == WIDTH-1];
+	cout << "Total successful (this should be the same number): " << total_successful << endl;
+	print_grid(frequencies);
+	print_grid_chance(frequencies,total_successful);
 }
 
 int main()
 {
+	ios::sync_with_stdio(0);
+	cin.tie(NULL);
+
+	// no misses for now, empty grid
+	grid_t misses = create_grid();
+	count_occurrences(misses);
 }
