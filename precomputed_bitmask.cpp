@@ -221,7 +221,7 @@ void print_grid(const grid_t &a)
 // print the final grid of probabilities
 void print_grid_chance(const grid_t &a, const ll &added_count)
 {
-	cout << fixed << setprecision(2); //show 2 decimals for chance
+	cout << fixed << setprecision(3); //show 3 decimals for chance
 	double count = added_count;
 	for (int y = 0; y < HEIGHT; ++y)
 		for (int x = 0; x < WIDTH; ++x)
