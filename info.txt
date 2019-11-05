@@ -1,0 +1,21 @@
+Liam Brown:
+https://cliambrown.com/battleship/methodology.php
+https://cliambrown.com/battleship/
+
+Alemi/Physics Virtuosi:
+https://web.archive.org/web/20190102121915/http://thephysicsvirtuosi.com/posts/the-linear-theory-of-battleship.html
+
+
+
+Bitmask approach:
+Keep track of individual usable positions for each ship (index them, only use valid ones)
+Solve pairwise conflicts
+
+Recurse on bitmask
+In the bottom level of recursion,
+increment the counter values associated with each position for each ship
+(or do this with valid-count return values and multiplication)
+
+keep track of hits count along the way
+
+At the end, use the draw function to draw that count onto the final grid
