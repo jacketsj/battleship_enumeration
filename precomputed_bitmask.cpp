@@ -142,25 +142,41 @@ pos_set all_compatible_pairs(int length_a, int state_a, int length_b, vector<int
 	return res;
 }
 
-vector<vector<pos_set>> find_all_pos_sets(vector<vector<int>> &valid_states)
+vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_states)
 {
 	// create a single test grid to avoid reallocating memory needlessly
 	grid_t test_grid = create_grid();
-	// indexed by ship1, ship2, position of ship1, ship2
+	// indexed by ship1, position of ship1, ship2
 	vector<vector<vector<pos_set>>> res(n,vector<vector<pos_set>>(n));
 	for (int i = 0; i < lengths.size(); ++i) // for each ship
-		for (int state_i = 0; state_i < valid_states[i].size(): ++state_i) // for each position of ship i
+		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each position of ship i
 			for (int j = i+1; j < lengths.size(); ++j) // for each ship that will be seen later than i
-				res[i][j] = all_compatible_pairs(lengths[i], valid_states[i][state_i], lengths[j], valid_states[j], test_grid);
+				res[i][state_i][j] = all_compatible_pairs(lengths[i], valid_states[i][state_i], lengths[j], valid_states[j], test_grid);
 	return res;
 }
 
-ll place_ship(const int ship_index, const vector<vector<pos_set>> &validity_masks,
-		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states)
+ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &validity_masks,
+		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful=0)
 {
 	// base case: all ships placed successfully
 	if (ship_index == n)
+	{
+		if (++total_successful % 1000000 == 0)
+			cout << "Cumulative successful: " << total_successful << endl;
 		return 1;
+	}
+
+	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
+	if (currently_valid[ship_index].none())
+		return 0;
+
+	// Save the information about currently_valid that we will need when we return from recursive calls
+	vector<pos_set> edits(n-ship_index-1);
+	for (int j = ship_index + 1; j < n; ++j)
+		edits[j-ship_index-1] = currently_valid[j];
+
+	// count of the number of valid placements of all remaining ships
+	ll count = 0;
 
 	// iterate over all the ship states that are still valid
 	// TODO: remove the wasteful loops (currently, this code will run about 10^11 times)
@@ -170,9 +186,20 @@ ll place_ship(const int ship_index, const vector<vector<pos_set>> &validity_mask
 	{
 		if (currently_valid[ship_index][state_index])
 		{
-
+			// update legal states for remaining ships
+			for (int j = ship_index + 1; j < n; ++j)
+				currently_valid[j] &= validity_masks[ship_index][state_index][j];
+			// recurse on remaining ships
+			ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+			// record counts
+			count += sub_result;
+			state_frequency[ship_index][state_index] += sub_result;
+			// set currently_valid values back
+			for (int j = ship_index + 1; j < n; ++j)
+				currently_valid[j] = edits[j-ship_index-1];
 		}
 	}
+	return count;
 }
 
 // list of hits not currently supported, need to derive new algorithm
@@ -186,7 +213,7 @@ grid_t count_occurrences(grid_t &misses)
 	for (int i = 0; i < n; ++i)
 		num_valid_states[i] = valid_states[i].size();
 
-	vector<vector<pos_set>> validity_masks = find_all_pos_sets(valid_states);
+	vector<vector<vector<pos_set>>> validity_masks = find_all_pos_sets(valid_states);
 
 	vector<pos_set> currently_valid; // for each ship, keep track of which positions are still valid
 
@@ -195,6 +222,16 @@ grid_t count_occurrences(grid_t &misses)
 		state_frequency.resize(valid_states[i].size());
 
 	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states);
+
+	grid_t frequencies = create_grid();
+	for (int i = 0; i < n; ++i)
+		for (int state_index = 0; state_index < num_valid_states[i]; ++state_index)
+			draw_state(state_index, lengths[i], state_frequency[i][state_index], frequencies);
+
+	cout << "Total states: " << total_states << endl;
+	for (int y = 0; y < HEIGHT; ++y)
+		for (int x = 0; x < WIDTH; ++x)
+			cout << frequencies[x+y*WIDTH] << "\t\n"[x == WIDTH-1];
 }
 
 int main()
