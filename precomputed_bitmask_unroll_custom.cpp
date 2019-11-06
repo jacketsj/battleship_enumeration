@@ -72,6 +72,20 @@ namespace fast_bitset
 			else
 				reset(i);
 		}
+		int bitscan_destructive_any()
+		{
+			for (int i = 0; i < N; ++i)
+			{
+				if (vals[i] != 0)
+				{
+					ull t = vals[i] & -vals[i];
+					int j = __builtin_ctzll(vals[i]);
+					vals[i] ^= t;
+					return sz*i+j;
+				}
+			}
+			return -1;
+		}
 		// do a destructive bitscan
 		// returns -1 if nothing found
 		int bitscan_destructive()
@@ -277,9 +291,11 @@ struct unroll
 		// iterate over all the ship states that are still valid
 		pos_set current = currently_valid[ship_index];
 		//current.copy(currently_valid[ship_index]);
-		while (current.any())
+		//while (current.any())
+		int state_index;
+		while ((state_index = current.bitscan_destructive_any()) != -1)
 		{
-			int state_index = current.bitscan_destructive();
+			//int state_index = current.bitscan_destructive();
 			// update legal states for remaining ships
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] &= validity_masks[ship_index][state_index][j];
