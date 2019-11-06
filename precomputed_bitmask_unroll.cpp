@@ -14,7 +14,7 @@ typedef long long ll;
 const vector<int> lengths = {2,3,3,4,5};
 */
 const vector<int> lengths = {5,4,3,3,2};
-const int n = lengths.size();
+#define n 5
 
 typedef bitset<WIDTH*(HEIGHT-1)+HEIGHT*(WIDTH-1)> pos_set;
 
@@ -161,53 +161,58 @@ vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_sta
 	return res;
 }
 
-ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &validity_masks,
-		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful)
+template <unsigned n_minus_ship_index>
+struct unroll
 {
-	// base case: all ships placed successfully
-	if (ship_index == n)
+	static ll place_ship(const vector<vector<vector<pos_set>>> &validity_masks,
+			vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states)
+			//, ll &total_successful)
 	{
-		if (++total_successful % 100000000 == 0)
-			cout << "Cumulative successful: " << total_successful << endl;
+		int ship_index = n - n_minus_ship_index;
+	
+		// Save the information about currently_valid that we will need when we return from recursive calls
+		vector<pos_set> edits(n-ship_index-1);
+		for (int j = ship_index + 1; j < n; ++j)
+			edits[j-ship_index-1] = currently_valid[j];
+	
+		// count of the number of valid placements of all remaining ships
+		ll count = 0;
+	
+		// iterate over all the ship states that are still valid
+		for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
+		{
+			if (currently_valid[ship_index][state_index])
+			{
+				// update legal states for remaining ships
+				for (int j = ship_index + 1; j < n; ++j)
+					currently_valid[j] &= validity_masks[ship_index][state_index][j];
+				// recurse on remaining ships
+				ll sub_result = unroll<n_minus_ship_index-1>::place_ship(validity_masks, currently_valid, state_frequency, num_valid_states);
+						//, total_successful);
+				// record counts
+				count += sub_result;
+				state_frequency[ship_index][state_index] += sub_result;
+				// set currently_valid values back
+				for (int j = ship_index + 1; j < n; ++j)
+					currently_valid[j] = edits[j-ship_index-1];
+			}
+		}
+		return count;
+	}
+};
+
+template <> struct unroll<0u>
+{
+	static ll place_ship(const vector<vector<vector<pos_set>>> &validity_masks,
+			vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states)
+			//, ll &total_successful)
+	{
+		// base case: all ships placed successfully
+		//if (++total_successful % 100000000 == 0)
+		//	cout << "Cumulative successful: " << total_successful << endl;
 		return 1;
 	}
-
-	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
-	// TODO: This actually gives a segfault??
-	//if (currently_valid[ship_index].none())
-	//	return 0;
-
-	// Save the information about currently_valid that we will need when we return from recursive calls
-	vector<pos_set> edits(n-ship_index-1);
-	for (int j = ship_index + 1; j < n; ++j)
-		edits[j-ship_index-1] = currently_valid[j];
-
-	// count of the number of valid placements of all remaining ships
-	ll count = 0;
-
-	// iterate over all the ship states that are still valid
-	// TODO: remove the wasteful loops (currently, this code will run about 10^11 times)
-	//       use __builtin_ffsll (returns 1 + the index of the first set bit, or 0 if no set bits)
-	//       this is a (forward) bitscan. MSVC also has a function for it (_BitScanForward64)
-	for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
-	{
-		if (currently_valid[ship_index][state_index])
-		{
-			// update legal states for remaining ships
-			for (int j = ship_index + 1; j < n; ++j)
-				currently_valid[j] &= validity_masks[ship_index][state_index][j];
-			// recurse on remaining ships
-			ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
-			// record counts
-			count += sub_result;
-			state_frequency[ship_index][state_index] += sub_result;
-			// set currently_valid values back
-			for (int j = ship_index + 1; j < n; ++j)
-				currently_valid[j] = edits[j-ship_index-1];
-		}
-	}
-	return count;
-}
+};
 
 // print the final grid
 void print_grid(const grid_t &a)
@@ -249,9 +254,10 @@ void count_occurrences(grid_t &misses)
 	for (int i = 0; i < n; ++i)
 		state_frequency[i].resize(num_valid_states[i]);
 
-	ll total_successful = 0;
+	//ll total_successful = 0;
 	// call recursive ship placement routine to iterate through all valid placements
-	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+	ll total_states = unroll<n>::place_ship(validity_masks, currently_valid, state_frequency, num_valid_states);
+			//, total_successful);
 
 	grid_t frequencies = create_grid();
 	for (int i = 0; i < n; ++i)
@@ -259,9 +265,9 @@ void count_occurrences(grid_t &misses)
 			draw_state(state_index, lengths[i], state_frequency[i][state_index], frequencies);
 
 	cout << "Total states: " << total_states << endl;
-	cout << "Total successful (this should be the same number): " << total_successful << endl;
+	//cout << "Total successful (this should be the same number): " << total_successful << endl;
 	print_grid(frequencies);
-	print_grid_chance(frequencies,total_successful);
+	print_grid_chance(frequencies,total_states);
 }
 
 int main()

@@ -5,15 +5,15 @@ typedef long long ll;
 
 // CONSTANTS
 // board dimensions
-#define WIDTH 10
-#define HEIGHT 10
+#define WIDTH 3
+#define HEIGHT 3
 /*
 #define WIDTH 10
 #define HEIGHT 10
 //boats
 const vector<int> lengths = {2,3,3,4,5};
 */
-const vector<int> lengths = {2,3,3,4,5};
+const vector<int> lengths = {2};
 const int n = lengths.size();
 
 
@@ -81,7 +81,7 @@ namespace fast_bitset
 		//}
 		// do a destructive bitscan
 		// returns -1 if nothing found
-		int next()
+		int bitscan_destructive()
 		{
 			for (int i = 0; i < N; ++i)
 			{
@@ -102,6 +102,13 @@ namespace fast_bitset
 			}
 			cout << "this should never happen" << endl;
 			return -1;
+		}
+		// non-destructive bitscan
+		int bitscan()
+		{
+			for (int i = 0; i < N; ++i)
+				if (vals[i] != 0)
+					return sz*i+__builtin_ctzll(vals[i]);
 		}
 	#undef sz
 	#undef N
@@ -282,7 +289,7 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	//current.copy(currently_valid[ship_index]);
 	while (current.any())
 	{
-		int state_index = current.next();
+		int state_index = current.bitscan();
 	//for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
 	//{
 		//if (currently_valid[ship_index].get(state_index))
@@ -299,6 +306,7 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] = edits[j-ship_index-1];
 		//}
+		current.set(state_index,false);
 	}
 	return count;
 }
