@@ -13,8 +13,9 @@ typedef long long ll;
 //boats
 const vector<int> lengths = {2,3,3,4,5};
 */
-const vector<int> lengths = {2,3,3,4,5};
-const int n = lengths.size();
+//const vector<int> lengths = {5,4,3,3,2};
+const vector<int> lengths = {5,4,3,3,2};
+#define n 5
 
 
 typedef unsigned long long ull;
@@ -38,24 +39,12 @@ namespace fast_bitset
 			for (int i = 0; i < N; ++i)
 				vals[i] &= other.vals[i];
 		}
-		//void copy(const pos_set &other)
-		//{
-		//	for (int i = 0; i < N; ++i)
-		//		vals[i] = other.vals[i];
-		//}
 		// any bit is set
 		bool any() const
 		{
 			for (int i = 0; i < N; ++i)
 				if (vals[i] != 0)
-				{
-					//cout << "vals[" << i << "] = " << std::bitset<sz>(vals[i]) << '\n';
-					//cout << "N=" << N << endl;
-					//cout << "T=" << T << endl;
-					//cout << "sz=" << sz << endl;
-					//cout << "T/sz=" << int(T)/int(sz) << endl;
 					return true;
-				}
 			return false;
 		}
 		bool get(ll i) const
@@ -68,8 +57,6 @@ namespace fast_bitset
 		{
 			int k = i/sz;
 			i %= sz;
-			//cout << "setting i=" << i << "on k=" << k << endl;
-			//cout << "vals[" << k << "] = " << std::bitset<sz>(vals[k]) << '\n';
 			vals[k] |= (ll(1)<<i);
 		}
 		void reset(ll i)
@@ -98,26 +85,19 @@ namespace fast_bitset
 					// __builtin_ctzll counts trailing 0s
 					ull t = vals[i] & -vals[i]; //lowestOneBit
 					int j = __builtin_ctzll(vals[i]);
-					int ret = sz*i+j;
 					// destroy it
+					vals[i] ^= t;
+					return sz*i+j;
 					//vals[i] &= ~(1<<j);
 					//the fenwick tree code doesn't work (?)
-					vals[i] ^= t;
-					return ret;
 				}
 			}
-			cout << "this should never happen" << endl;
-			return -1;
 		}
 		int ctz(ll v) const
 		{
 			for (int i = 0; i < sz; ++i)
 				if ((v & (ll(1)<<i)) !=0 )
 					return i;
-
-			cout << "this should never happen, v=" << v << endl;
-			assert(false);
-			return -1;
 		}
 		// non-destructive bitscan
 		int bitscan()
@@ -277,58 +257,57 @@ vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_sta
 	return res;
 }
 
-ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &validity_masks,
-		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful)
+template <unsigned n_minus_ship_index>
+struct unroll
 {
-	// base case: all ships placed successfully
-	if (ship_index == n)
+	static ll place_ship(const vector<vector<vector<pos_set>>> &validity_masks,
+			vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states)
+			//, ll &total_successful)
 	{
-		//if (++total_successful % 100000000 == 0)
-			//cout << "Cumulative successful: " << total_successful << endl;
-		return 1;
-	}
+		int ship_index = n - n_minus_ship_index;
 
-	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
-	// TODO: This actually gives a segfault??
-	//if (currently_valid[ship_index].none())
-	//	return 0;
+		// Save the information about currently_valid that we will need when we return from recursive calls
+		vector<pos_set> edits(n-ship_index-1);
+		for (int j = ship_index + 1; j < n; ++j)
+			edits[j-ship_index-1] = currently_valid[j];
 
-	// Save the information about currently_valid that we will need when we return from recursive calls
-	vector<pos_set> edits(n-ship_index-1);
-	for (int j = ship_index + 1; j < n; ++j)
-		edits[j-ship_index-1] = currently_valid[j];
+		// count of the number of valid placements of all remaining ships
+		ll count = 0;
 
-	// count of the number of valid placements of all remaining ships
-	ll count = 0;
-
-	// iterate over all the ship states that are still valid
-	pos_set current = currently_valid[ship_index];
-	//current.copy(currently_valid[ship_index]);
-	while (current.any())
-	{
-		int state_index = current.bitscan();
-		//cout << "state_index=" << state_index << endl;
-	//for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
-	//{
-		//if (currently_valid[ship_index].get(state_index))
-		//{
+		// iterate over all the ship states that are still valid
+		pos_set current = currently_valid[ship_index];
+		//current.copy(currently_valid[ship_index]);
+		while (current.any())
+		{
+			int state_index = current.bitscan_destructive();
 			// update legal states for remaining ships
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] &= validity_masks[ship_index][state_index][j];
 			// recurse on remaining ships
-			ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+			ll sub_result = unroll<n_minus_ship_index-1>::place_ship(validity_masks, currently_valid, state_frequency, num_valid_states);
 			// record counts
 			count += sub_result;
-			//cout << "incrementing state_index=" << state_index << " freq by sub_res=" << sub_result << endl;
 			state_frequency[ship_index][state_index] += sub_result;
 			// set currently_valid values back
 			for (int j = ship_index + 1; j < n; ++j)
 				currently_valid[j] = edits[j-ship_index-1];
-		//}
-		current.reset(state_index);
+		}
+		return count;
 	}
-	return count;
-}
+};
+
+template <> struct unroll<0u>
+{
+	static ll place_ship(const vector<vector<vector<pos_set>>> &validity_masks,
+			vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states)
+			//, ll &total_successful)
+	{
+		// base case: all ships placed successfully
+		//if (++total_successful % 100000000 == 0)
+		//	cout << "Cumulative successful: " << total_successful << endl;
+		return 1;
+	}
+};
 
 // print the final grid
 void print_grid(const grid_t &a)
@@ -370,22 +349,20 @@ void count_occurrences(grid_t &misses)
 	for (int i = 0; i < n; ++i)
 		state_frequency[i].resize(num_valid_states[i]);
 
-	ll total_successful = 0;
+	//ll total_successful = 0;
 	// call recursive ship placement routine to iterate through all valid placements
-	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+	ll total_states = unroll<n>::place_ship(validity_masks, currently_valid, state_frequency, num_valid_states);
+			//, total_successful);
 
 	grid_t frequencies = create_grid();
 	for (int i = 0; i < n; ++i)
 		for (int state_index = 0; state_index < num_valid_states[i]; ++state_index)
-		{
-			//cout << "final frequency of state_index=" << state_index << " was res=" << state_frequency[i][state_index] << endl;
 			draw_state(state_index, lengths[i], state_frequency[i][state_index], frequencies);
-		}
 
 	cout << "Total states: " << total_states << endl;
-	cout << "Total successful (this should be the same number): " << total_successful << endl;
+	//cout << "Total successful (this should be the same number): " << total_successful << endl;
 	print_grid(frequencies);
-	print_grid_chance(frequencies,total_successful);
+	print_grid_chance(frequencies,total_states);
 }
 
 int main()
