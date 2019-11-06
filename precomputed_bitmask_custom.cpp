@@ -13,7 +13,7 @@ typedef long long ll;
 //boats
 const vector<int> lengths = {2,3,3,4,5};
 */
-const vector<int> lengths = {2,3,3,4,5};
+const vector<int> lengths = {5,4,3,3,2};
 const int n = lengths.size();
 
 
@@ -38,24 +38,12 @@ namespace fast_bitset
 			for (int i = 0; i < N; ++i)
 				vals[i] &= other.vals[i];
 		}
-		//void copy(const pos_set &other)
-		//{
-		//	for (int i = 0; i < N; ++i)
-		//		vals[i] = other.vals[i];
-		//}
 		// any bit is set
 		bool any() const
 		{
 			for (int i = 0; i < N; ++i)
 				if (vals[i] != 0)
-				{
-					//cout << "vals[" << i << "] = " << std::bitset<sz>(vals[i]) << '\n';
-					//cout << "N=" << N << endl;
-					//cout << "T=" << T << endl;
-					//cout << "sz=" << sz << endl;
-					//cout << "T/sz=" << int(T)/int(sz) << endl;
 					return true;
-				}
 			return false;
 		}
 		bool get(ll i) const
@@ -68,8 +56,6 @@ namespace fast_bitset
 		{
 			int k = i/sz;
 			i %= sz;
-			//cout << "setting i=" << i << "on k=" << k << endl;
-			//cout << "vals[" << k << "] = " << std::bitset<sz>(vals[k]) << '\n';
 			vals[k] |= (ll(1)<<i);
 		}
 		void reset(ll i)
@@ -84,6 +70,20 @@ namespace fast_bitset
 				set(i);
 			else
 				reset(i);
+		}
+		int bitscan_destructive_any()
+		{
+			for (int i = 0; i < N; ++i)
+			{
+				if (vals[i] != 0)
+				{
+					ull t = vals[i] & -vals[i];
+					int j = __builtin_ctzll(vals[i]);
+					vals[i] ^= t;
+					return sz*i+j;
+				}
+			}
+			return -1;
 		}
 		// do a destructive bitscan
 		// returns -1 if nothing found
@@ -114,10 +114,6 @@ namespace fast_bitset
 			for (int i = 0; i < sz; ++i)
 				if ((v & (ll(1)<<i)) !=0 )
 					return i;
-
-			cout << "this should never happen, v=" << v << endl;
-			assert(false);
-			return -1;
 		}
 		// non-destructive bitscan
 		int bitscan()
@@ -288,11 +284,6 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 		return 1;
 	}
 
-	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
-	// TODO: This actually gives a segfault??
-	//if (currently_valid[ship_index].none())
-	//	return 0;
-
 	// Save the information about currently_valid that we will need when we return from recursive calls
 	vector<pos_set> edits(n-ship_index-1);
 	for (int j = ship_index + 1; j < n; ++j)
@@ -304,28 +295,22 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	// iterate over all the ship states that are still valid
 	pos_set current = currently_valid[ship_index];
 	//current.copy(currently_valid[ship_index]);
-	while (current.any())
+	//while (current.any())
+	int state_index;
+	while ((state_index = current.bitscan_destructive_any()) != -1)
 	{
-		int state_index = current.bitscan();
-		//cout << "state_index=" << state_index << endl;
-	//for (int state_index = 0; state_index < num_valid_states[ship_index]; ++state_index)
-	//{
-		//if (currently_valid[ship_index].get(state_index))
-		//{
-			// update legal states for remaining ships
-			for (int j = ship_index + 1; j < n; ++j)
-				currently_valid[j] &= validity_masks[ship_index][state_index][j];
-			// recurse on remaining ships
-			ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
-			// record counts
-			count += sub_result;
-			//cout << "incrementing state_index=" << state_index << " freq by sub_res=" << sub_result << endl;
-			state_frequency[ship_index][state_index] += sub_result;
-			// set currently_valid values back
-			for (int j = ship_index + 1; j < n; ++j)
-				currently_valid[j] = edits[j-ship_index-1];
-		//}
-		current.reset(state_index);
+		//int state_index = current.bitscan_destructive();
+		// update legal states for remaining ships
+		for (int j = ship_index + 1; j < n; ++j)
+			currently_valid[j] &= validity_masks[ship_index][state_index][j];
+		// recurse on remaining ships
+		ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+		// record counts
+		count += sub_result;
+		state_frequency[ship_index][state_index] += sub_result;
+		// set currently_valid values back
+		for (int j = ship_index + 1; j < n; ++j)
+			currently_valid[j] = edits[j-ship_index-1];
 	}
 	return count;
 }
