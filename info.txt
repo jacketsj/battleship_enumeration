@@ -19,3 +19,74 @@ increment the counter values associated with each position for each ship
 keep track of hits count along the way
 
 At the end, use the draw function to draw that count onto the final grid
+
+
+
+Adding hits and sinks to bitmask approach:
+	For each ship state, have a count of hits_overlapped[i][s_i].
+	At the end, if the sum of all hits_overlapped are less than the total
+	hit count, do not use it
+In the case of "sunk" messages that tell you which boat was sunk:
+	For sinks, find exactly the valid ship states for the sunk boat,
+	such that the ship state overlaps with the sunk spot, and all other points are hits
+In the case of ambiguous ones ("a ship was sunk", no info on which)
+	For each ship state, have a sunk[i][s_i] \in\{0,1\},
+	1 if all hits and one sunk, 0 else
+	Sum them together and filter out configurations that have the incorrect number
+Note that for cases with sunk boats,
+	a state overlapping with all hits and no sunk messages
+	are invalid states
+
+
+Possible online approach:
+When a miss is added,
+do the branching algorithm again,
+but find only the newly invalid configurations (look at "interesting" branches),
+and subtract them.
+When a hit or sink is added, do the same.
+
+
+Online misses, hits, and sinks:
+Start from __builtin version ('custom' bitset), unrolled version ok
+	(start from hits and sinks version)
+Use interactive command-line interface for now
+No need to record the state counts, the grid of counts suffices
+Add permutation parameter to place_ship routine (to optimize branching)
+valid_states should only be the default for current_states,
+	rather than the indeces (let the indeces be all states)
+To add a miss:
+	We want to find all configurations that previously intersected the miss
+	Find all states that intersect the miss, remove them from valid_states,
+		but add them to miss_states
+	For each ship b,
+		set current_states[b] to be miss_states[b],
+		and current_states[c]=valid_states[c] (c !=b)
+		Create a permutation starting with b (and then the rest in descending order)
+		Call place_ship
+		Subtract the results from the grid
+To add a hit:
+	We want to find all configurations that intersect the hit
+	Find all states that intersect the hit, add them to hit_states,
+		and also remove states covered entirely in hits from valid_states
+	Reset the counts grid
+	For each ship b,
+		set current_states[b] to be hit_states[b],
+		and current_states[c]=valid_states[c] (c !=b)
+		Create a permutation starting with b (and then the rest in descending order)
+		Call place_ship
+		Add the results to the grid
+To add a sink:
+	We want to find all configurations that intersect the sink correctly
+	Find all states that intersect the sink,
+		add them to sink_states_valid and sink_states_invalid appropriately,
+		remove sink_states_invalid from valid_states
+	Reset the counts grid
+	For each ship b,
+		set current_states[b] to be sink_states_valid[b],
+		and current_states[c]=valid_states[c] (c !=b)
+		Create a permutation starting with b (and then the rest in descending order)
+		Call place_ship
+		Add the results to the grid
+
+The only really "online" one here is the misses case.
+The others are just efficient (hopefully).
