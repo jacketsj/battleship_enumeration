@@ -207,28 +207,95 @@ bool draw_state(int state_index, int length, ll mult, grid_t &grid)
 	return ret;
 }
 
+// non-editing (and general) iteration through state_squares
+template <typename F>
+void look_at_state_squares(int state_index, int length, const grid_t &grid,
+		F callback)
+{
+	int x, y, dx, dy;
+	tie(x,y,dx,dy) = get_state_dpos(state_index, length);
+	for (int l = 0; l < length; ++l)
+	{
+		callback(grid[x+y*WIDTH]);
+		x += dx;
+		y += dy;
+	}
+}
+
 // returns a list of state indeces that do not conflict with misses
-vector<int> find_valid_individual_states(int length, grid_t &misses)
+vector<int> find_valid_individual_states(int length, const grid_t &misses, const grid_t &hits, const grid_t &sinks,
+		vector<int> &miss_count,
+		vector<int> &hit_count,
+		vector<int> &sink_count,
+		int &total_misses,
+		int &total_hits,
+		int &total_sinks)
 {
 	vector<int> res; // final result
 	// check validity of each state index
-	for (int state_index = 0; state_index < state_count(length); ++state_index)
+	int m = state_count(length);
+	for (int state_index = 0; state_index < m; ++state_index)
 	{
-		// draw and find validity
-		if (draw_state(state_index, length, 1, misses))
-			res.push_back(state_index);
-		// undraw
-		draw_state(state_index, length, -1, misses);
+		// record counts
+		look_at_state_squares(state_index, length, misses,
+				[&](ll square)
+				{
+					if (square != 0)
+						++miss_count[state_index];
+				});
+		look_at_state_squares(state_index, length, hits,
+				[&](ll square)
+				{
+					if (square != 0)
+						++hit_count[state_index];
+				});
+		look_at_state_squares(state_index, length, sinks,
+				[&](ll square)
+				{
+					if (square != 0)
+						++sink_count[state_index];
+				});
+		// find validity of state
+		bool valid = true;
+		// does it overlap with a miss?
+		if (miss_count[state_index] > 0)
+			valid = false;
+		// does it overlap with a sink of the incorrect length?
+		look_at_state_squares(state_index, length, sinks,
+				[&](ll sink)
+				{
+					if (sink > 0)
+						valid = valid && (sink == length);
+				});
+		// does it overlap with at most one sink?
+		if (sink_count[state_index] > 1)
+			valid = false;
+		// does it overlap with a sink of the correct length, but not enough hits?
+		if (sink_count[state_index] > 0 && hit_count[state_index] < length - 1)
+			valid = false;
+		// does it overlap with length hits (no sink, but is sunk)?
+		if (hit_count[state_index] == length)
+			valid = false;
+		// is it still a valid state?
+		res.push_back(valid);
 	}
 	return res;
 }
 
 // returns a list of position indeces that do not conflict with misses for each ship
-vector<vector<int>> find_valid_states(grid_t &misses)
+vector<vector<int>> find_valid_states(const grid_t &misses,
+		const grid_t &hits, const grid_t &sinks,
+		vector<vector<int>> &miss_counts,
+		vector<vector<int>> &hit_counts,
+		vector<vector<int>> &sink_counts,
+		int &total_misses,
+		int &total_hits,
+		int &total_sinks)
 {
 	vector<vector<int>> res(n);
 	for (int i = 0; i < n; ++i)
-		res[i] = find_valid_individual_states(lengths[i], misses);
+		res[i] = find_valid_individual_states(lengths[i], misses, hits, sinks,
+				miss_counts[i], hit_counts[i], sink_counts[i], total_misses, total_hits, total_sinks);
 	return res;
 }
 
@@ -241,50 +308,72 @@ bool compatible_pair(int length_a, int state_a, int length_b, int state_b, grid_
 	return valid;
 }
 
-pos_set all_compatible_pairs(int length_a, int state_a, int length_b, vector<int> &states_b, grid_t &test_grid)
+pos_set all_compatible_pairs(int length_a, int state_a, int length_b, int state_count_b, grid_t &test_grid)
 {
 	pos_set res;
-	for (int i = 0; i < states_b.size(); ++i)
+	for (int state_b = 0; state_b < state_count_b; ++state_b)
 	{
-		int state_b = states_b[i];
 		if (compatible_pair(length_a, state_a, length_b, state_b, test_grid))
-			res.set(i);
+			res.set(state_b);
 	}
 	return res;
 }
 
-vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_states)
+vector<vector<vector<pos_set>>> find_all_pos_sets()
 {
 	// create a single test grid to avoid reallocating memory needlessly
 	grid_t test_grid = create_grid();
 	// indexed by ship1, position of ship1, ship2
 	vector<vector<vector<pos_set>>> res(n);
+	// for each ship i
 	for (int i = 0; i < n; ++i)
 	{
-		res[i].resize(valid_states[i].size());
-		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+		int m = state_count(lengths[i]);
+		res[i].resize(m);
+		// for each state of ship i
+		for (int state_i = 0; state_i < m; ++state_i) // for each state of ship i
 			res[i][state_i].resize(n);
 	}
 
 	for (int i = 0; i < n; ++i) // for each ship
-		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+	{
+		int m = state_count(lengths[i]);
+		for (int state_i = 0; state_i < m; ++state_i) // for each state of ship i
 			for (int j = i+1; j < n; ++j) // for each ship that will be seen later than i
-				res[i][state_i][j] = all_compatible_pairs(lengths[i], valid_states[i][state_i], lengths[j], valid_states[j], test_grid);
+			{
+				int state_count_j = state_count(lengths[j]);
+				res[i][state_i][j] = all_compatible_pairs(lengths[i], state_i,
+						lengths[j], state_count_j, test_grid);
+			}
+	}
 	return res;
 }
 
-ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &validity_masks,
-		vector<pos_set> &currently_valid, vector<vector<int>> &state_frequency, const vector<int> &num_valid_states, ll &total_successful)
+ll place_ship(const int ship_index,
+		const vector<vector<vector<pos_set>>> &validity_masks,
+		vector<pos_set> &currently_valid,
+		vector<vector<int>> &state_frequency,
+		const vector<vector<int>> &hit_counts,
+		const vector<vector<int>> &sink_counts,
+		int remaining_hits,
+		int remaining_sinks)
 {
 	// base case: all ships placed successfully
 	if (ship_index == n)
 	{
-		//if (++total_successful % 100000000 == 0)
-			//cout << "Cumulative successful: " << total_successful << endl;
-		return 1;
+		// since this section of code is run so much, we should minimize branching (since that is very slow)
+		// we could also do this as a memory lookup using remaining_sinks and remaining_hits as indeces
+		// is the configuration valid? want to return 1 if so, 0 else
+		// valid iff remaining_sinks = 0 and remaining_hits = 0
+		int temp = remaining_sinks + remaining_hits; // 0 iff answer should be 1, >0 else
+		//since the above is bounded by 2*(WIDTH*HEIGHT), we can ceiling the division
+		int div = 2*WIDTH*HEIGHT;
+		temp = (temp + div - 1) / div; // now 0 if valid, 1 else
+		return 1-temp; // swap 1 and 0 responses
 	}
 
-	// Save the information about currently_valid that we will need when we return from recursive calls
+	// Save the information about currently_valid that
+	// we will need when we return from recursive calls
 	vector<pos_set> edits(n-ship_index-1);
 	for (int j = ship_index + 1; j < n; ++j)
 		edits[j-ship_index-1] = currently_valid[j];
@@ -304,7 +393,9 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 		for (int j = ship_index + 1; j < n; ++j)
 			currently_valid[j] &= validity_masks[ship_index][state_index][j];
 		// recurse on remaining ships
-		ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+		ll sub_result = place_ship(ship_index + 1, validity_masks, currently_valid,
+				state_frequency, hit_counts, sink_counts, remaining_hits - hit_counts[ship_index][state_index],
+				remaining_sinks - sink_counts[ship_index][state_index]);
 		// record counts
 		count += sub_result;
 		state_frequency[ship_index][state_index] += sub_result;
@@ -333,44 +424,58 @@ void print_grid_chance(const grid_t &a, const ll &added_count)
 			cout << double(a[x+y*WIDTH])/count << "\t\n"[x == WIDTH-1];
 }
 
-// list of hits not currently supported, need to derive new algorithm
 // count the number of occurrences of each spot on the grid
 // do this by counting the frequency of each position for each ship
-void count_occurrences(grid_t &misses)
+void count_occurrences(grid_t &misses, grid_t &hits, grid_t &sinks)
 {
-	vector<vector<int>> valid_states = find_valid_states(misses);
-	// count the number of valid states, to be used when placing ships
-	vector<int> num_valid_states(n);
-	for (int i = 0; i < n; ++i)
-		num_valid_states[i] = valid_states[i].size();
+	// find all the validity masks (conflict-free pairs), even for invalid states
+	vector<vector<vector<pos_set>>> validity_masks = find_all_pos_sets();
 
-	vector<vector<vector<pos_set>>> validity_masks = find_all_pos_sets(valid_states);
+	// for each ship and state, how many misses/hits/sinks overlap with it?
+	vector<vector<int>> miss_counts(n), hit_counts(n), sink_counts(n);
+	for (int i = 0; i < n; ++i)
+	{
+		int m = state_count(lengths[i]);
+		miss_counts[i].resize(m);
+		hit_counts[i].resize(m);
+		sink_counts[i].resize(m);
+	}
+	int total_misses = 0, total_hits = 0, total_sinks = 0;
+
+	// find all the valid state indeces
+	vector<vector<int>> valid_states = find_valid_states(misses,hits,sinks,
+			miss_counts,hit_counts,sink_counts,total_misses,total_hits,total_sinks);
 
 	vector<pos_set> currently_valid(n); // for each ship, keep track of which states are still valid
 	for (int i = 0; i < n; ++i)
-		for (int state_i = 0; state_i < num_valid_states[i]; ++state_i)
+	{
+		int m = state_count(lengths[i]);
+		for (int state_i = 0; state_i < m; ++state_i)
 			currently_valid[i].set(state_i);
+	}
 
 	vector<vector<int>> state_frequency(n); // for each ship, keep the frequency of each of its states
 	for (int i = 0; i < n; ++i)
-		state_frequency[i].resize(num_valid_states[i]);
+		state_frequency[i].resize(state_count(lengths[i]));
 
-	ll total_successful = 0;
-	// call recursive ship placement routine to iterate through all valid placements
-	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency, num_valid_states, total_successful);
+	// call recursive ship placement routine to iterate through all valid configurations
+	ll total_states = place_ship(0, validity_masks, currently_valid, state_frequency,
+			hit_counts, sink_counts, total_hits, total_sinks);
 
 	grid_t frequencies = create_grid();
 	for (int i = 0; i < n; ++i)
-		for (int state_index = 0; state_index < num_valid_states[i]; ++state_index)
+	{
+		int m = state_count(lengths[i]);
+		for (int state_index = 0; state_index < m; ++state_index)
 		{
 			//cout << "final frequency of state_index=" << state_index << " was res=" << state_frequency[i][state_index] << endl;
 			draw_state(state_index, lengths[i], state_frequency[i][state_index], frequencies);
 		}
+	}
 
 	cout << "Total states: " << total_states << endl;
-	cout << "Total successful (this should be the same number): " << total_successful << endl;
 	print_grid(frequencies);
-	print_grid_chance(frequencies,total_successful);
+	print_grid_chance(frequencies,total_states);
 }
 
 int main()
@@ -378,7 +483,12 @@ int main()
 	ios::sync_with_stdio(0);
 	cin.tie(NULL);
 
-	// no misses for now, empty grid
+	// misses is a grid of 0s and 1s, where the point is 1 iff it is a miss
 	grid_t misses = create_grid();
-	count_occurrences(misses);
+	// hits is a grid of 0s and 1s, where the point is 1 iff it is a hit
+	grid_t hits = create_grid();
+	// hits is a grid of 0s -1s, and positive integers, where the point is 0 iff it is not a sink,
+	// -1 if it is a sink for unspecified length, and k>0 if it is a sink of length k
+	grid_t sinks = create_grid();
+	count_occurrences(misses,hits,sinks);
 }
