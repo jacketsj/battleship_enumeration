@@ -14,6 +14,7 @@ typedef long long ll;
 const vector<int> lengths = {2,3,3,4,5};
 */
 const vector<int> lengths = {5,4,3,3,2};
+//const vector<int> lengths = {3,3,2};
 const int n = lengths.size();
 
 
@@ -226,10 +227,7 @@ void look_at_state_squares(int state_index, int length, const grid_t &grid,
 vector<int> find_valid_individual_states(int ship_index, int length, const grid_t &misses, const grid_t &hits, const grid_t &sinks,
 		vector<int> &miss_count,
 		vector<int> &hit_count,
-		vector<int> &sink_count,
-		int &total_misses,
-		int &total_hits,
-		int &total_sinks)
+		vector<int> &sink_count)
 {
 	vector<int> res; // final result
 	// check validity of each state index
@@ -287,15 +285,12 @@ vector<vector<int>> find_valid_states(const grid_t &misses,
 		const grid_t &hits, const grid_t &sinks,
 		vector<vector<int>> &miss_counts,
 		vector<vector<int>> &hit_counts,
-		vector<vector<int>> &sink_counts,
-		int &total_misses,
-		int &total_hits,
-		int &total_sinks)
+		vector<vector<int>> &sink_counts)
 {
 	vector<vector<int>> res(n);
 	for (int i = 0; i < n; ++i)
 		res[i] = find_valid_individual_states(i, lengths[i], misses, hits, sinks,
-				miss_counts[i], hit_counts[i], sink_counts[i], total_misses, total_hits, total_sinks);
+				miss_counts[i], hit_counts[i], sink_counts[i]);
 	return res;
 }
 
@@ -361,6 +356,8 @@ ll place_ship(const int ship_index,
 	// base case: all ships placed successfully
 	if (ship_index == n)
 	{
+		return (remaining_sinks == 0 && remaining_hits == 0) ? 1 : 0;
+		/*
 		// since this section of code is run so much, we should minimize branching (since that is very slow)
 		// we could also do this as a memory lookup using remaining_sinks and remaining_hits as indeces
 		// is the configuration valid? want to return 1 if so, 0 else
@@ -370,6 +367,7 @@ ll place_ship(const int ship_index,
 		int div = 2*WIDTH*HEIGHT;
 		temp = (temp + div - 1) / div; // now 0 if valid, 1 else
 		return 1-temp; // swap 1 and 0 responses
+		*/
 	}
 
 	// Save the information about currently_valid that
@@ -441,17 +439,33 @@ void count_occurrences(grid_t &misses, grid_t &hits, grid_t &sinks)
 		sink_counts[i].resize(m);
 	}
 	int total_misses = 0, total_hits = 0, total_sinks = 0;
+	for (auto g : misses)
+		if (g != 0)
+			++total_misses;
+	for (auto g : hits)
+		if (g != 0)
+			++total_hits;
+	for (auto g : sinks)
+		if (g != 0)
+			++total_sinks;
 
 	// find all the valid state indeces
 	vector<vector<int>> valid_states = find_valid_states(misses,hits,sinks,
-			miss_counts,hit_counts,sink_counts,total_misses,total_hits,total_sinks);
+			miss_counts,hit_counts,sink_counts);
 
 	vector<pos_set> currently_valid(n); // for each ship, keep track of which states are still valid
 	for (int i = 0; i < n; ++i)
 	{
 		int m = state_count(lengths[i]);
 		for (int state_i = 0; state_i < m; ++state_i)
-			currently_valid[i].set(state_i);
+		{
+			//not initially valid if it overlaps with a miss
+			if (miss_counts[i][state_i] == 0)
+			{
+				cout << "valid: ship=" << i << ", state=" << state_i << endl;
+				currently_valid[i].set(state_i);
+			}
+		}
 	}
 
 	vector<vector<int>> state_frequency(n); // for each ship, keep the frequency of each of its states
@@ -478,6 +492,53 @@ void count_occurrences(grid_t &misses, grid_t &hits, grid_t &sinks)
 	print_grid_chance(frequencies,total_states);
 }
 
+int convert_test_coordinate(char a, int i)
+{
+	int y = a-'a';
+	int x = i-1;
+	return x+y*WIDTH;
+}
+
+void test_small(grid_t &misses, grid_t &hits, grid_t &sinks)
+{
+	//TEST:
+	//8x8
+	//miss at A1
+	//(should be 0%)
+	misses[convert_test_coordinate('a',1)] = 1;
+}
+
+void test_small2(grid_t &misses, grid_t &hits, grid_t &sinks)
+{
+	//TEST:
+	//8x8
+	//hit at A1
+	//(should be 100%)
+	hits[convert_test_coordinate('a',1)] = 1;
+}
+
+void test1(grid_t &misses, grid_t &hits, grid_t &sinks)
+{
+	//TEST:
+	//10x10
+	//miss at A1, C7
+	misses[convert_test_coordinate('a',1)] = 1;
+	misses[convert_test_coordinate('c',7)] = 1;
+	//hit at D5, D7, E7, F7, G7, I7
+	hits[convert_test_coordinate('d',5)] = 1;
+	hits[convert_test_coordinate('d',7)] = 1;
+	hits[convert_test_coordinate('e',7)] = 1;
+	hits[convert_test_coordinate('f',7)] = 1;
+	hits[convert_test_coordinate('g',7)] = 1;
+	hits[convert_test_coordinate('i',7)] = 1;
+	//sink ship 0 at H7
+	sinks[convert_test_coordinate('h',7)] = 1+0;
+	//D6 should be about 76.8%
+	//D1 should be about 8.8%
+	//H4 should be about 11.9%
+	//I6 should be about 20.3%
+}
+
 int main()
 {
 	ios::sync_with_stdio(0);
@@ -490,5 +551,9 @@ int main()
 	// hits is a grid of 0s -1s, and positive integers, where the point is 0 iff it is not a sink,
 	// -1 if it is a sink for unspecified length, and k>0 if it is ship k-1
 	grid_t sinks = create_grid();
+
+	test1(misses,hits,sinks);
+	//test_small2(misses,hits,sinks);
+
 	count_occurrences(misses,hits,sinks);
 }
