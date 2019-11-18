@@ -461,10 +461,7 @@ void count_occurrences(grid_t &misses, grid_t &hits, grid_t &sinks)
 		{
 			//not initially valid if it overlaps with a miss
 			if (miss_counts[i][state_i] == 0)
-			{
-				cout << "valid: ship=" << i << ", state=" << state_i << endl;
 				currently_valid[i].set(state_i);
-			}
 		}
 	}
 

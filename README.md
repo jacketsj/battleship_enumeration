@@ -54,7 +54,6 @@ It can fully account for misses, hits, and sinks.
 - Still not interactive.
 - Removes the initial "valid state" filter on the indeces.
 	This will allow an easier transition into the online version.
-- Uses a "permutation" for the place ship routine to order for branching automatically.
 
 ## Precomputed Bitmask Full Custom Length Sinks
 This solver is the same as the full custom solver,
