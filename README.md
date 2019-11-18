@@ -46,3 +46,20 @@ This version uses templates to unroll the branching algorithm at compile-time.
 ## Precomputed Bitmask Custom Unroll
 This combines the last two modifications, and runs in about 1m16s.
 This will be the base for online appoaches.
+
+## Precomputed Bitmask Full Custom
+This is the first full solver running.
+It can fully account for misses, hits, and sinks.
+- Slow compared to other bitmask-based solvers. Takes over 4m to run on the empty board.
+- Still not interactive.
+- Removes the initial "valid state" filter on the indeces.
+	This will allow an easier transition into the online version.
+- Uses a "permutation" for the place ship routine to order for branching automatically.
+
+## Precomputed Bitmask Full Custom Length Sinks
+This solver is the same as the full custom solver,
+but it uses sink messages that specify the length of the ship sunk
+instead of the particular ship sunk.
+- While the cases are symmetric in terms of the tiles touched,
+	this changes the probabilities due to double-counting.
+- This solver produces the same results as the previous when all ship lengths are unique.
