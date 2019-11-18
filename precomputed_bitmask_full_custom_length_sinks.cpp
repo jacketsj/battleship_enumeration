@@ -223,7 +223,7 @@ void look_at_state_squares(int state_index, int length, const grid_t &grid,
 }
 
 // returns a list of state indeces that do not conflict with misses
-vector<int> find_valid_individual_states(int ship_index, int length, const grid_t &misses, const grid_t &hits, const grid_t &sinks,
+vector<int> find_valid_individual_states(int length, const grid_t &misses, const grid_t &hits, const grid_t &sinks,
 		vector<int> &miss_count,
 		vector<int> &hit_count,
 		vector<int> &sink_count,
@@ -265,7 +265,7 @@ vector<int> find_valid_individual_states(int ship_index, int length, const grid_
 				[&](ll sink)
 				{
 					if (sink > 0)
-						valid = valid && (sink-1 == ship_index);
+						valid = valid && (sink == length);
 				});
 		// does it overlap with at most one sink?
 		if (sink_count[state_index] > 1)
@@ -294,7 +294,7 @@ vector<vector<int>> find_valid_states(const grid_t &misses,
 {
 	vector<vector<int>> res(n);
 	for (int i = 0; i < n; ++i)
-		res[i] = find_valid_individual_states(i, lengths[i], misses, hits, sinks,
+		res[i] = find_valid_individual_states(lengths[i], misses, hits, sinks,
 				miss_counts[i], hit_counts[i], sink_counts[i], total_misses, total_hits, total_sinks);
 	return res;
 }
@@ -488,7 +488,7 @@ int main()
 	// hits is a grid of 0s and 1s, where the point is 1 iff it is a hit
 	grid_t hits = create_grid();
 	// hits is a grid of 0s -1s, and positive integers, where the point is 0 iff it is not a sink,
-	// -1 if it is a sink for unspecified length, and k>0 if it is ship k-1
+	// -1 if it is a sink for unspecified length, and k>0 if it is a sink of length k
 	grid_t sinks = create_grid();
 	count_occurrences(misses,hits,sinks);
 }
