@@ -167,15 +167,10 @@ ll place_ship(const int ship_index, const vector<vector<vector<pos_set>>> &valid
 	// base case: all ships placed successfully
 	if (ship_index == n)
 	{
-		if (++total_successful % 100000000 == 0)
-			cout << "Cumulative successful: " << total_successful << endl;
+		//if (++total_successful % 100000000 == 0)
+		//	cout << "Cumulative successful: " << total_successful << endl;
 		return 1;
 	}
-
-	// if there are no valid placements of this ship, return (TODO: Case may be unnecessary)
-	// TODO: This actually gives a segfault??
-	//if (currently_valid[ship_index].none())
-	//	return 0;
 
 	// Save the information about currently_valid that we will need when we return from recursive calls
 	vector<pos_set> edits(n-ship_index-1);
@@ -261,7 +256,7 @@ void count_occurrences(grid_t &misses)
 	cout << "Total states: " << total_states << endl;
 	cout << "Total successful (this should be the same number): " << total_successful << endl;
 	print_grid(frequencies);
-	print_grid_chance(frequencies,total_successful);
+	print_grid_chance(frequencies,total_states);
 }
 
 int main()

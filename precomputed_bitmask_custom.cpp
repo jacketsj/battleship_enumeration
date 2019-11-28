@@ -370,7 +370,7 @@ void count_occurrences(grid_t &misses)
 	cout << "Total states: " << total_states << endl;
 	cout << "Total successful (this should be the same number): " << total_successful << endl;
 	print_grid(frequencies);
-	print_grid_chance(frequencies,total_successful);
+	print_grid_chance(frequencies,total_states);
 }
 
 int main()
