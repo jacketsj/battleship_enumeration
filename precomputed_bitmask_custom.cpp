@@ -244,7 +244,7 @@ bool compatible_pair(int length_a, int state_a, int length_b, int state_b, grid_
 pos_set all_compatible_pairs(int length_a, int state_a, int length_b, vector<int> &states_b, grid_t &test_grid)
 {
 	pos_set res;
-	for (int i = 0; i < states_b.size(); ++i)
+	for (size_t i = 0; i < states_b.size(); ++i)
 	{
 		int state_b = states_b[i];
 		if (compatible_pair(length_a, state_a, length_b, state_b, test_grid))
@@ -262,12 +262,12 @@ vector<vector<vector<pos_set>>> find_all_pos_sets(vector<vector<int>> &valid_sta
 	for (int i = 0; i < n; ++i)
 	{
 		res[i].resize(valid_states[i].size());
-		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+		for (size_t state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
 			res[i][state_i].resize(n);
 	}
 
 	for (int i = 0; i < n; ++i) // for each ship
-		for (int state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
+		for (size_t state_i = 0; state_i < valid_states[i].size(); ++state_i) // for each state of ship i
 			for (int j = i+1; j < n; ++j) // for each ship that will be seen later than i
 				res[i][state_i][j] = all_compatible_pairs(lengths[i], valid_states[i][state_i], lengths[j], valid_states[j], test_grid);
 	return res;

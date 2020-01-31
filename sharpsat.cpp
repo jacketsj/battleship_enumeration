@@ -77,7 +77,7 @@ void add_grid(grid_t &a, const grid_t &b)
 			a[i][j] += b[i][j];
 }
 
-bool print_position(const vector<int> &positions, const vector<int> &max_digits)
+void print_position(const vector<int> &positions, const vector<int> &max_digits)
 {
 	int n = positions.size();
 	for (int i = 0; i < n; ++i)
@@ -118,7 +118,7 @@ void sat_formulation(const grid_t &hits, const grid_t &misses)
 	//compute total number of variables
 	int var_size = 0;
 	for (int s = 0; s < n; ++s)
-		for (int p = 0; p < vars[s].size(); ++p)
+		for (size_t p = 0; p < vars[s].size(); ++p)
 			vars[s][p] = ++var_size;
 
 	grid_t current_grid = create_grid();

@@ -12,6 +12,5 @@ all: $(EXECS)
 $(OUTDIR):
 	mkdir $(OUTDIR)
 
-$(OUTDIR)/%.exe: $(OUTDIR) $(SRCS)
+$(OUTDIR)/%.exe: $(SRCS) | $(OUTDIR)
 	$(CC) $(CFLAGS) $(MAINSRC) $(@:$(OUTDIR)/%.exe=%.cpp) -o $@
-	@echo Compiled $@
